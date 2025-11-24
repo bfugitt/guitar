@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guitar Assistant</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+    <style>
+        /* --- SYSTEM 6 AESTHETICS --- */
+        :root {
+            --bg-color: #f0f0f0;
+            --window-bg: #ffffff;
+            --text-color: #000000;
+            --highlight: #000000;
+            --border-light: #ffffff;
+            --border-dark: #000000;
+            --shadow: #aaaaaa;
+        }
+
+        body {
+            font-family: 'VT323', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 10px;
+            box-sizing: border-box;
+            /* Classic 1-bit dithered background pattern */
+            background-image: 
+                linear-gradient(45deg, #ccc 25%, transparent 25%), 
+                linear-gradient(-45deg, #ccc 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #ccc 75%), 
+                linear-gradient(-45deg, transparent 75%, #ccc 75%);
+            background-size: 4px 4px;
+            user-select: none; /* Prevent text selection during rapid tapping */
+        }
+
+        /* The Main Window */
+        .window {
+            background-color: var(--window-bg);
+            border: 2px solid var(--text-color);
+            box-shadow: 6px 6px 0px rgba(0,0,0,0.2);
+            width: 100%;
+            max-width: 450px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* Title Bar */
+        .title-bar {
+            background: 
+                repeating-linear-gradient(
+                    to bottom,
+                    var(--text-color),
+                    var(--text-color) 1px,
+                    var(--window-bg) 1px,
+                    var(--window-bg) 2px
+                );
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-bottom: 2px solid var(--text-color);
+            padding: 4px;
+        }
+
+        .title-text {
+            background-color: var(--window-bg);
+            padding: 0 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+
+        /* Main Content Area */
+        .content {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* The Chord Display Screen */
+        .display-screen {
+            border: 2px solid var(--text-color);
+            padding: 20px 10px;
+            background: #fff;
+            text-align: center;
+            box-shadow: inset 2px 2px 0px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .chord-box {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            font-size: 4rem; /* Big text for phone visibility */
+            line-height: 1;
+        }
+
+        .arrow {
+            font-size: 2.5rem;
+            color: #666;
+        }
+
+        .status-message {
+            margin-top: 10px;
+            font-size: 1.2rem;
+            color: #666;
+            min-height: 1.5em;
+        }
+
+        /* Progress Bar Retro Style */
+        .progress-container {
+            width: 100%;
+            height: 20px;
+            border: 2px solid var(--text-color);
+            margin-top: 10px;
+            position: relative;
+            background: repeating-linear-gradient(
+                45deg,
+                #fff,
+                #fff 5px,
+                #eee 5px,
+                #eee 10px
+            );
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--text-color);
+            width: 0%;
+            transition: width 0.2s linear;
+        }
+
+        /* Controls Section */
+        .controls-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            flex: 1;
+        }
+
+        .group-label {
+            font-size: 1.1rem;
+            border-bottom: 1px solid #000;
+            margin-bottom: 5px;
+        }
+
+        /* Retro Buttons */
+        button {
+            font-family: 'VT323', monospace;
+            font-size: 1.3rem;
+            background-color: #fff;
+            border-top: 2px solid #fff;
+            border-left: 2px solid #fff;
+            border-right: 2px solid #000;
+            border-bottom: 2px solid #000;
+            padding: 5px 15px;
+            cursor: pointer;
+            active: scale(0.98);
+            text-transform: uppercase;
+            outline: none;
+            touch-action: manipulation; /* Improves touch response */
+        }
+
+        button:active {
+            border-top: 2px solid #000;
+            border-left: 2px solid #000;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+            background-color: #ddd;
+        }
+
+        /* Toggled State (Depressed) */
+        button.active, button.depressed {
+            background-color: #000;
+            color: #fff;
+            border-top: 2px solid #000;
+            border-left: 2px solid #000;
+            border-right: 2px solid #fff;
+            border-bottom: 2px solid #fff;
+        }
+
+        /* Start/Stop Button specific styles */
+        #action-btn {
+            width: 100%;
+            font-size: 1.8rem;
+            padding: 10px;
+            margin-top: 10px;
+        }
+
+        /* Chord Grid (Weights) */
+        .chord-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            padding: 10px;
+            background: #eee;
+            border: 1px solid #000;
+            box-shadow: inset 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
+        .chord-toggle {
+            font-size: 1.2rem;
+            padding: 5px 0;
+            width: 100%;
+        }
+
+        /* Helper Utilities */
+        .hidden { display: none; }
+        
+        /* Mobile specific adjustments */
+        @media (max-width: 400px) {
+            .chord-box { font-size: 3rem; }
+            .chord-grid { grid-template-columns: repeat(3, 1fr); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="window">
+        <!-- Title Bar -->
+        <div class="title-bar">
+            <span class="title-text">GUITAR ASSISTANT</span>
+        </div>
+
+        <div class="content">
+            
+            <!-- Main Display -->
+            <div class="display-screen">
+                <div class="chord-box">
+                    <span id="chord-left">A</span>
+                    <span class="arrow">➜</span>
+                    <span id="chord-right">Dm</span>
+                </div>
+                
+                <div class="progress-container">
+                    <div id="progress-bar" class="progress-fill"></div>
+                </div>
+                
+                <div id="status-text" class="status-message">Ready</div>
+            </div>
+
+            <!-- Settings & Controls -->
+            <div class="controls-row">
+                <!-- Duration Selectors -->
+                <div class="control-group">
+                    <div class="group-label">Duration</div>
+                    <div style="display: flex; gap: 5px;">
+                        <button class="duration-btn" data-time="10" onclick="setDuration(10)">10s</button>
+                        <button class="duration-btn active" data-time="30" onclick="setDuration(30)">30s</button>
+                        <button class="duration-btn" data-time="60" onclick="setDuration(60)">60s</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <button id="action-btn" onclick="toggleTimer()">START</button>
+
+            <!-- Chord Selection (The "Weights" area) -->
+            <div class="control-group">
+                <div class="group-label">Chord Set</div>
+                <div class="chord-grid" id="chord-grid">
+                    <!-- Javascript will populate this -->
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration ---
+        const ALL_CHORDS = ['A', 'D', 'E', 'C', 'G', 'Am', 'Dm', 'Em'];
+        let activeChords = [...ALL_CHORDS]; // Start with all
+        
+        let duration = 30;
+        let isRunning = false;
+        let timerInterval = null;
+        let timeLeft = 0;
+        let wakeLock = null;
+
+        // --- DOM Elements ---
+        const chordLeftEl = document.getElementById('chord-left');
+        const chordRightEl = document.getElementById('chord-right');
+        const statusTextEl = document.getElementById('status-text');
+        const progressBarEl = document.getElementById('progress-bar');
+        const actionBtn = document.getElementById('action-btn');
+        const chordGrid = document.getElementById('chord-grid');
+
+        // --- Initialization ---
+        function init() {
+            renderChordButtons();
+            randomizeChords();
+        }
+
+        // --- Chord Logic ---
+        function renderChordButtons() {
+            chordGrid.innerHTML = '';
+            ALL_CHORDS.forEach(chord => {
+                const btn = document.createElement('button');
+                btn.textContent = chord;
+                btn.className = 'chord-toggle depressed'; // Default to active look
+                btn.onclick = () => toggleChordInclusion(chord, btn);
+                chordGrid.appendChild(btn);
+            });
+        }
+
+        function toggleChordInclusion(chord, btnElement) {
+            // Logic: You cannot uncheck the last 2 chords (need at least 2 to switch)
+            const isCurrentlyActive = activeChords.includes(chord);
+            
+            if (isCurrentlyActive) {
+                if (activeChords.length <= 2) {
+                    // Flash error or shake button if trying to remove too many
+                    btnElement.style.backgroundColor = '#aaa';
+                    setTimeout(() => btnElement.style.backgroundColor = '', 100);
+                    return; 
+                }
+                activeChords = activeChords.filter(c => c !== chord);
+                btnElement.classList.remove('depressed');
+            } else {
+                activeChords.push(chord);
+                btnElement.classList.add('depressed');
+            }
+        }
+
+        function randomizeChords() {
+            if (activeChords.length < 2) return;
+
+            // Pick first chord
+            const idx1 = Math.floor(Math.random() * activeChords.length);
+            let chord1 = activeChords[idx1];
+
+            // Pick second chord (ensure it's different)
+            let chord2;
+            do {
+                const idx2 = Math.floor(Math.random() * activeChords.length);
+                chord2 = activeChords[idx2];
+            } while (chord1 === chord2);
+
+            // Update DOM with slight animation effect
+            chordLeftEl.style.opacity = 0;
+            chordRightEl.style.opacity = 0;
+
+            setTimeout(() => {
+                chordLeftEl.textContent = chord1;
+                chordRightEl.textContent = chord2;
+                chordLeftEl.style.opacity = 1;
+                chordRightEl.style.opacity = 1;
+            }, 100);
+        }
+
+        // --- Timer Logic ---
+        function setDuration(seconds) {
+            if (isRunning) return; // Disable changing time while running
+            
+            duration = seconds;
+            
+            // Visual update of buttons
+            document.querySelectorAll('.duration-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseInt(btn.dataset.time) === seconds) {
+                    btn.classList.add('active');
+                }
+            });
+            
+            statusTextEl.textContent = `Set for ${duration}s`;
+        }
+
+        function toggleTimer() {
+            if (isRunning) {
+                stopTimer();
+            } else {
+                startTimer();
+            }
+        }
+
+        async function startTimer() {
+            isRunning = true;
+            actionBtn.textContent = "STOP";
+            actionBtn.classList.add('depressed');
+            
+            // Lock the screen awake
+            await requestWakeLock();
+
+            // Initial randomized set
+            randomizeChords();
+            
+            startIntervalCycle();
+        }
+
+        function startIntervalCycle() {
+            timeLeft = duration;
+            updateProgress();
+            statusTextEl.textContent = `${timeLeft}s remaining`;
+
+            // Clear any existing interval just in case
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                statusTextEl.textContent = `${timeLeft}s remaining`;
+                updateProgress();
+
+                if (timeLeft <= 0) {
+                    // Time is up! 
+                    randomizeChords();
+                    timeLeft = duration; // Reset time
+                    statusTextEl.textContent = "CHANGE!";
+                    // Flash effect
+                    document.querySelector('.display-screen').style.backgroundColor = '#ccc';
+                    setTimeout(() => {
+                        document.querySelector('.display-screen').style.backgroundColor = '#fff';
+                    }, 100);
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            isRunning = false;
+            actionBtn.textContent = "START";
+            actionBtn.classList.remove('depressed');
+            
+            clearInterval(timerInterval);
+            timerInterval = null;
+            
+            progressBarEl.style.width = '0%';
+            statusTextEl.textContent = "Paused";
+            
+            releaseWakeLock();
+        }
+
+        function updateProgress() {
+            const percentage = ((duration - timeLeft) / duration) * 100;
+            progressBarEl.style.width = `${percentage}%`;
+        }
+
+        // --- Screen Wake Lock API ---
+        async function requestWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Screen Wake Lock active');
+                    
+                    // Re-acquire lock if visibility changes (user tabs out and back in)
+                    wakeLock.addEventListener('release', () => {
+                        console.log('Screen Wake Lock released');
+                    });
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
+                    statusTextEl.textContent = "Wake Lock Failed (Check Settings)";
+                }
+            }
+        }
+
+        function releaseWakeLock() {
+            if (wakeLock !== null) {
+                wakeLock.release()
+                    .then(() => {
+                        wakeLock = null;
+                    });
+            }
+        }
+
+        // Handle visibility change to re-acquire lock if app was running
+        document.addEventListener('visibilitychange', async () => {
+            if (wakeLock !== null && document.visibilityState === 'visible' && isRunning) {
+                await requestWakeLock();
+            }
+        });
+
+        // Run Init
+        init();
+
+    </script>
+</body>
+</html>
