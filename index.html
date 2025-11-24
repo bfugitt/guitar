@@ -109,12 +109,13 @@
             margin-top: 10px;
         }
 
-        /* NEW: Strum Counter Styles */
+        /* Strum Counter Styles */
         .strum-readout {
             font-size: 2rem;
             font-weight: bold;
             margin: 5px 0;
             color: #000;
+            transition: color 0.1s;
         }
         .strum-label {
             font-size: 1.2rem;
@@ -151,20 +152,18 @@
             transition: width 0.2s linear;
         }
 
-        .controls-row {
+        /* Controls Layout */
+        .controls-section {
             display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
+            flex-direction: column;
             gap: 15px;
-            flex-wrap: wrap;
         }
 
         .control-group {
             display: flex;
             flex-direction: column;
             gap: 5px;
-            flex: 1;
-            min-width: 140px;
+            width: 100%;
         }
 
         .group-label {
@@ -174,12 +173,20 @@
             white-space: nowrap;
         }
 
+        /* Slider Row with Test Button */
+        .slider-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
         /* Range Slider Styling */
         input[type=range] {
             -webkit-appearance: none;
             width: 100%;
-            margin: 10px 0;
+            margin: 0;
             background: transparent;
+            flex-grow: 1;
         }
         input[type=range]:focus { outline: none; }
         input[type=range]::-webkit-slider-runnable-track {
@@ -205,7 +212,7 @@
             height: 6px;
             background: #eee;
             border: 1px solid #ccc;
-            margin-top: 2px;
+            margin-top: 5px;
             position: relative;
         }
         .meter-fill {
@@ -256,6 +263,13 @@
             border-bottom: 2px solid #fff;
         }
 
+        /* Test Button Style */
+        #test-btn {
+            font-size: 1.1rem;
+            padding: 5px 10px;
+            white-space: nowrap;
+        }
+
         #action-btn {
             width: 100%;
             font-size: 1.8rem;
@@ -301,8 +315,8 @@
                     <span id="chord-right">Dm</span>
                 </div>
                 
-                <!-- NEW: Strum Counter Display -->
-                <div class="strum-readout">
+                <!-- Strum Counter Display -->
+                <div class="strum-readout" id="strum-display-area">
                     <span class="strum-label">STRUMS:</span> 
                     <span id="strum-count">0</span>
                 </div>
@@ -314,7 +328,8 @@
                 <div id="status-text" class="status-message">Ready</div>
             </div>
 
-            <div class="controls-row">
+            <div class="controls-section">
+                <!-- Row 1: Duration -->
                 <div class="control-group">
                     <div class="group-label">Duration</div>
                     <div style="display: flex; gap: 5px;">
@@ -324,10 +339,13 @@
                     </div>
                 </div>
 
-                <!-- NEW: Sensitivity Slider -->
+                <!-- Row 2: Sensitivity & Test -->
                 <div class="control-group">
-                    <div class="group-label">Strum Sensitivity</div>
-                    <input type="range" id="sensitivity-slider" min="1" max="100" value="30">
+                    <div class="group-label">Strum Sensitivity (L=More, R=Less)</div>
+                    <div class="slider-row">
+                        <input type="range" id="sensitivity-slider" min="5" max="100" value="40">
+                        <button id="test-btn" onclick="toggleTestMode()">TEST MIC</button>
+                    </div>
                     <div class="meter-container">
                         <div id="meter-fill" class="meter-fill"></div>
                         <div id="threshold-marker" class="threshold-marker"></div>
@@ -352,6 +370,7 @@
         let activeChords = [...ALL_CHORDS];
         let duration = 30;
         let isRunning = false;
+        let isTestMode = false;
         let timerInterval = null;
         let timeLeft = 0;
         let wakeLock = null;
@@ -362,8 +381,9 @@
         let analyser = null;
         let microphoneStream = null;
         let audioProcessingId = null;
-        let isStrumming = false; // Debounce state
+        let isStrumming = false; 
         let lastStrumTime = 0;
+        const STRUM_DEBOUNCE_MS = 400; // Increased to 400ms to prevent double-counting ringing strings
 
         // --- DOM Elements ---
         const chordLeftEl = document.getElementById('chord-left');
@@ -371,8 +391,10 @@
         const statusTextEl = document.getElementById('status-text');
         const progressBarEl = document.getElementById('progress-bar');
         const actionBtn = document.getElementById('action-btn');
+        const testBtn = document.getElementById('test-btn');
         const chordGrid = document.getElementById('chord-grid');
         const strumCountEl = document.getElementById('strum-count');
+        const strumDisplayArea = document.getElementById('strum-display-area');
         const sensitivitySlider = document.getElementById('sensitivity-slider');
         const meterFill = document.getElementById('meter-fill');
         const thresholdMarker = document.getElementById('threshold-marker');
@@ -388,10 +410,10 @@
         sensitivitySlider.addEventListener('input', updateThresholdMarker);
 
         function updateThresholdMarker() {
-            // Slider value 0-100. Marker position % matches value.
-            // Higher value = Higher threshold (harder to trigger)
             const val = sensitivitySlider.value;
-            thresholdMarker.style.left = val + '%';
+            // Map value to visual percentage
+            const percent = ((val - 5) / (100 - 5)) * 100;
+            thresholdMarker.style.left = percent + '%';
         }
 
         // --- Chord Logic ---
@@ -456,6 +478,9 @@
         }
 
         function toggleTimer() {
+            // If in test mode, stop test mode first
+            if (isTestMode) toggleTestMode();
+
             if (isRunning) {
                 stopTimer();
             } else {
@@ -468,12 +493,10 @@
             actionBtn.textContent = "STOP";
             actionBtn.classList.add('depressed');
             
-            // Reset Strum Count
-            strumCount = 0;
-            strumCountEl.textContent = "0";
+            resetStrumCount();
 
             await requestWakeLock();
-            await initAudio(); // Initialize mic
+            await initAudio(); 
 
             randomizeChords();
             startIntervalCycle();
@@ -491,7 +514,12 @@
             statusTextEl.textContent = "Paused";
             
             releaseWakeLock();
-            stopAudio(); // Cut mic
+            stopAudio(); 
+        }
+
+        function resetStrumCount() {
+            strumCount = 0;
+            strumCountEl.textContent = "0";
         }
 
         function startIntervalCycle() {
@@ -506,7 +534,9 @@
                 updateProgress();
 
                 if (timeLeft <= 0) {
+                    // Change Chords and Reset Count
                     randomizeChords();
+                    resetStrumCount(); // Reset count on chord change
                     timeLeft = duration;
                     statusTextEl.textContent = "CHANGE!";
                     document.querySelector('.display-screen').style.backgroundColor = '#ccc';
@@ -522,27 +552,48 @@
             progressBarEl.style.width = `${percentage}%`;
         }
 
+        // --- Test Mode Logic ---
+        async function toggleTestMode() {
+            if (isRunning) return; // Can't test while running main timer
+
+            if (isTestMode) {
+                // STOP TEST
+                isTestMode = false;
+                testBtn.classList.remove('depressed');
+                testBtn.textContent = "TEST MIC";
+                statusTextEl.textContent = "Test Ended";
+                stopAudio();
+            } else {
+                // START TEST
+                isTestMode = true;
+                testBtn.classList.add('depressed');
+                testBtn.textContent = "STOP TEST";
+                statusTextEl.textContent = "Adjust Sensitivity Slider...";
+                await initAudio();
+            }
+        }
+
         // --- Audio & Strum Detection ---
         async function initAudio() {
+            if (audioContext) return; // Already running
+
             try {
-                // Create context
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
                 audioContext = new AudioContext();
                 
-                // Get mic stream
                 microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 const source = audioContext.createMediaStreamSource(microphoneStream);
                 
-                // Create analyser
                 analyser = audioContext.createAnalyser();
                 analyser.fftSize = 256;
                 source.connect(analyser);
 
-                // Start loop
                 detectStrum();
             } catch (err) {
                 console.error("Mic Error:", err);
-                statusTextEl.textContent = "Mic access denied/failed";
+                statusTextEl.textContent = "Mic access denied";
+                if(isTestMode) toggleTestMode();
+                if(isRunning) stopTimer();
             }
         }
 
@@ -563,51 +614,50 @@
         }
 
         function detectStrum() {
-            if (!isRunning || !analyser) return;
+            if ((!isRunning && !isTestMode) || !analyser) return;
 
             const bufferLength = analyser.frequencyBinCount;
             const dataArray = new Uint8Array(bufferLength);
             analyser.getByteTimeDomainData(dataArray);
 
-            // Calculate peak volume (amplitude)
             let maxVal = 0;
             for(let i = 0; i < bufferLength; i++) {
-                const v = Math.abs(dataArray[i] - 128); // 128 is silence in 8-bit
+                const v = Math.abs(dataArray[i] - 128); 
                 if (v > maxVal) maxVal = v;
             }
 
-            // Normalize maxVal (approx 0-128) to 0-100 for easy visual logic
+            // Normalize maxVal (0-128) to 0-100
             const currentVol = (maxVal / 128) * 100;
             
-            // Visual Update
-            meterFill.style.width = Math.min(currentVol * 2, 100) + '%'; // *2 purely for visual pop
+            // Visual Meter Update
+            meterFill.style.width = Math.min(currentVol * 2, 100) + '%'; 
 
-            // Logic
-            // The Slider value (0-100) is the threshold.
-            // If currentVol > Slider, we count a strum.
             const threshold = parseInt(sensitivitySlider.value);
-            
-            // Hysteresis (Debouncing)
-            // Trigger ON if vol > threshold
-            // Trigger OFF if vol < threshold * 0.5 (must go quiet before next strum)
-            
             const now = Date.now();
-            // Prevent machine-gun counting (limit to 1 strum per 150ms max)
             const timeSinceLast = now - lastStrumTime;
 
-            if (currentVol > threshold && !isStrumming && timeSinceLast > 150) {
-                // STRUM DETECTED
+            // Trigger Logic
+            if (currentVol > threshold && !isStrumming && timeSinceLast > STRUM_DEBOUNCE_MS) {
                 isStrumming = true;
                 lastStrumTime = now;
-                strumCount++;
-                strumCountEl.textContent = strumCount;
                 
-                // Visual flash on counter
-                strumCountEl.style.color = '#888';
-                setTimeout(() => strumCountEl.style.color = '#000', 100);
+                if (isRunning) {
+                    // Normal Running Mode
+                    strumCount++;
+                    strumCountEl.textContent = strumCount;
+                    strumCountEl.style.color = '#888';
+                    setTimeout(() => strumCountEl.style.color = '#000', 100);
+                } else if (isTestMode) {
+                    // Test Mode - Visual Only
+                    statusTextEl.textContent = "DETECTED!";
+                    strumDisplayArea.style.color = 'red';
+                    setTimeout(() => {
+                        strumDisplayArea.style.color = 'black';
+                        statusTextEl.textContent = "Adjust Sensitivity Slider...";
+                    }, 200);
+                }
 
-            } else if (currentVol < (threshold * 0.5)) {
-                // Reset trigger when it gets quiet enough
+            } else if (currentVol < (threshold * 0.4)) { // Lower reset threshold for hysteresis
                 isStrumming = false;
             }
 
