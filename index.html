@@ -103,13 +103,17 @@
             justify-content: center;
             align-items: center;
             gap: 15px;
-            font-size: 4rem; /* Big text for phone visibility */
+            /* UPDATED: Increased size for visibility on music stand */
+            font-size: 7rem; 
             line-height: 1;
+            padding: 10px 0;
         }
 
         .arrow {
-            font-size: 2.5rem;
+            /* UPDATED: Increased arrow size to match */
+            font-size: 4rem;
             color: #666;
+            margin-top: 10px; /* Slight alignment fix */
         }
 
         .status-message {
@@ -229,7 +233,8 @@
         
         /* Mobile specific adjustments */
         @media (max-width: 400px) {
-            .chord-box { font-size: 3rem; }
+            /* If screen is very small, shrink font slightly so it doesn't break layout */
+            .chord-box { font-size: 4.5rem; }
             .chord-grid { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
@@ -288,7 +293,11 @@
 
     <script>
         // --- Configuration ---
+        // ADD NEW CHORDS HERE inside the quotes. 
+        // Example: ['A', 'D', 'E', 'F#m', 'B7']
+        // The buttons at the bottom will automatically update to include them.
         const ALL_CHORDS = ['A', 'D', 'E', 'C', 'G', 'Am', 'Dm', 'Em'];
+        
         let activeChords = [...ALL_CHORDS]; // Start with all
         
         let duration = 30;
