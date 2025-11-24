@@ -50,6 +50,7 @@
             display: flex;
             flex-direction: column;
             position: relative;
+            z-index: 1;
         }
 
         .title-bar {
@@ -270,11 +271,23 @@
             white-space: nowrap;
         }
 
+        /* Main Action Row */
+        .action-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
         #action-btn {
-            width: 100%;
+            flex-grow: 2;
             font-size: 1.8rem;
             padding: 10px;
-            margin-top: 10px;
+        }
+        
+        #log-btn {
+            flex-grow: 1;
+            font-size: 1.8rem;
+            padding: 10px;
         }
 
         .chord-grid {
@@ -292,6 +305,70 @@
             padding: 5px 0;
             width: 100%;
         }
+
+        /* --- MODAL POPUP --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+        
+        .modal-window {
+            background-color: var(--window-bg);
+            border: 2px solid var(--text-color);
+            box-shadow: 10px 10px 0px rgba(0,0,0,0.4);
+            width: 90%;
+            max-width: 400px;
+            max-height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-content {
+            padding: 15px;
+            overflow-y: auto;
+        }
+
+        .log-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            border: 1px solid #000;
+            background: #fff;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 10px;
+            border-bottom: 1px solid #eee;
+            font-size: 1.3rem;
+        }
+        .log-item:last-child { border-bottom: none; }
+        .log-item:nth-child(even) { background-color: #fafafa; }
+
+        .log-score {
+            font-weight: bold;
+        }
+
+        .modal-footer {
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            border-top: 1px solid #000;
+            background: #eee;
+        }
+
+        .hidden { display: none !important; }
 
         @media (max-width: 400px) {
             .chord-box { font-size: 4.5rem; }
@@ -353,13 +430,34 @@
                 </div>
             </div>
 
-            <button id="action-btn" onclick="toggleTimer()">START</button>
+            <div class="action-row">
+                <button id="action-btn" onclick="toggleTimer()">START</button>
+                <button id="log-btn" onclick="openLogModal()">LOGS</button>
+            </div>
 
             <div class="control-group">
                 <div class="group-label">Chord Set</div>
                 <div class="chord-grid" id="chord-grid"></div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- LOG MODAL -->
+    <div id="log-modal" class="modal-overlay hidden">
+        <div class="modal-window">
+            <div class="title-bar">
+                <span class="title-text">PRACTICE LOG (MAX STRUMS)</span>
+            </div>
+            <div class="modal-content">
+                <ul id="log-list" class="log-list">
+                    <!-- Logs go here -->
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button onclick="clearLog()">CLEAR ALL</button>
+                <button onclick="closeLogModal()" class="depressed">CLOSE</button>
+            </div>
         </div>
     </div>
 
@@ -376,6 +474,9 @@
         let wakeLock = null;
         let strumCount = 0;
 
+        // --- Data Persistence ---
+        let practiceLog = {};
+
         // --- Audio Variables ---
         let audioContext = null;
         let analyser = null;
@@ -383,7 +484,7 @@
         let audioProcessingId = null;
         let isStrumming = false; 
         let lastStrumTime = 0;
-        const STRUM_DEBOUNCE_MS = 400; // Increased to 400ms to prevent double-counting ringing strings
+        const STRUM_DEBOUNCE_MS = 400; 
 
         // --- DOM Elements ---
         const chordLeftEl = document.getElementById('chord-left');
@@ -398,12 +499,72 @@
         const sensitivitySlider = document.getElementById('sensitivity-slider');
         const meterFill = document.getElementById('meter-fill');
         const thresholdMarker = document.getElementById('threshold-marker');
+        const logModal = document.getElementById('log-modal');
+        const logList = document.getElementById('log-list');
 
         // --- Initialization ---
         function init() {
             renderChordButtons();
             randomizeChords();
             updateThresholdMarker();
+            loadLog();
+        }
+
+        // --- Log Logic ---
+        function loadLog() {
+            const stored = localStorage.getItem('guitarPracticeLog');
+            if (stored) {
+                practiceLog = JSON.parse(stored);
+            }
+        }
+
+        function saveLog() {
+            localStorage.setItem('guitarPracticeLog', JSON.stringify(practiceLog));
+        }
+
+        function updateLogRecord(chord1, chord2, count) {
+            const key = `${chord1} ➜ ${chord2}`;
+            const currentMax = practiceLog[key] || 0;
+            
+            if (count > currentMax) {
+                practiceLog[key] = count;
+                saveLog();
+                console.log(`New record for ${key}: ${count}`);
+                // Optional: Flash a "New Record" message?
+            }
+        }
+
+        function openLogModal() {
+            logList.innerHTML = '';
+            
+            const entries = Object.entries(practiceLog);
+            if (entries.length === 0) {
+                logList.innerHTML = '<li class="log-item" style="justify-content:center; color:#666;">No practice data yet.</li>';
+            } else {
+                // Sort alphabetically
+                entries.sort((a, b) => a[0].localeCompare(b[0]));
+                
+                entries.forEach(([key, score]) => {
+                    const li = document.createElement('li');
+                    li.className = 'log-item';
+                    li.innerHTML = `<span>${key}</span> <span class="log-score">${score}</span>`;
+                    logList.appendChild(li);
+                });
+            }
+            
+            logModal.classList.remove('hidden');
+        }
+
+        function closeLogModal() {
+            logModal.classList.add('hidden');
+        }
+
+        function clearLog() {
+            if(confirm("Are you sure you want to clear your practice history?")) {
+                practiceLog = {};
+                saveLog();
+                openLogModal(); // Refresh view
+            }
         }
 
         // Sensitivity slider updates visuals
@@ -411,7 +572,6 @@
 
         function updateThresholdMarker() {
             const val = sensitivitySlider.value;
-            // Map value to visual percentage
             const percent = ((val - 5) / (100 - 5)) * 100;
             thresholdMarker.style.left = percent + '%';
         }
@@ -478,7 +638,6 @@
         }
 
         function toggleTimer() {
-            // If in test mode, stop test mode first
             if (isTestMode) toggleTestMode();
 
             if (isRunning) {
@@ -503,6 +662,11 @@
         }
 
         function stopTimer() {
+            // Save logic if user stops manually? 
+            // Current Logic: Only saves on completion of full duration interval.
+            // If you want to save partial efforts, uncomment below:
+            // captureCurrentScore();
+
             isRunning = false;
             actionBtn.textContent = "START";
             actionBtn.classList.remove('depressed');
@@ -522,6 +686,15 @@
             strumCountEl.textContent = "0";
         }
 
+        function captureCurrentScore() {
+            // Check what is currently on screen and log it
+            const c1 = chordLeftEl.textContent;
+            const c2 = chordRightEl.textContent;
+            if (c1 && c2 && strumCount > 0) {
+                updateLogRecord(c1, c2, strumCount);
+            }
+        }
+
         function startIntervalCycle() {
             timeLeft = duration;
             updateProgress();
@@ -534,9 +707,15 @@
                 updateProgress();
 
                 if (timeLeft <= 0) {
-                    // Change Chords and Reset Count
+                    // 1. Capture Score BEFORE changing chords
+                    captureCurrentScore();
+
+                    // 2. Change Chords
                     randomizeChords();
-                    resetStrumCount(); // Reset count on chord change
+                    
+                    // 3. Reset Count
+                    resetStrumCount();
+                    
                     timeLeft = duration;
                     statusTextEl.textContent = "CHANGE!";
                     document.querySelector('.display-screen').style.backgroundColor = '#ccc';
@@ -554,17 +733,15 @@
 
         // --- Test Mode Logic ---
         async function toggleTestMode() {
-            if (isRunning) return; // Can't test while running main timer
+            if (isRunning) return; 
 
             if (isTestMode) {
-                // STOP TEST
                 isTestMode = false;
                 testBtn.classList.remove('depressed');
                 testBtn.textContent = "TEST MIC";
                 statusTextEl.textContent = "Test Ended";
                 stopAudio();
             } else {
-                // START TEST
                 isTestMode = true;
                 testBtn.classList.add('depressed');
                 testBtn.textContent = "STOP TEST";
@@ -575,7 +752,7 @@
 
         // --- Audio & Strum Detection ---
         async function initAudio() {
-            if (audioContext) return; // Already running
+            if (audioContext) return; 
 
             try {
                 const AudioContext = window.AudioContext || window.webkitAudioContext;
@@ -642,13 +819,11 @@
                 lastStrumTime = now;
                 
                 if (isRunning) {
-                    // Normal Running Mode
                     strumCount++;
                     strumCountEl.textContent = strumCount;
                     strumCountEl.style.color = '#888';
                     setTimeout(() => strumCountEl.style.color = '#000', 100);
                 } else if (isTestMode) {
-                    // Test Mode - Visual Only
                     statusTextEl.textContent = "DETECTED!";
                     strumDisplayArea.style.color = 'red';
                     setTimeout(() => {
@@ -657,7 +832,7 @@
                     }, 200);
                 }
 
-            } else if (currentVol < (threshold * 0.4)) { // Lower reset threshold for hysteresis
+            } else if (currentVol < (threshold * 0.4)) { 
                 isStrumming = false;
             }
 
