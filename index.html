@@ -32,17 +32,15 @@
             margin: 0;
             padding: 10px;
             box-sizing: border-box;
-            /* Classic 1-bit dithered background pattern */
             background-image: 
                 linear-gradient(45deg, #ccc 25%, transparent 25%), 
                 linear-gradient(-45deg, #ccc 25%, transparent 25%), 
                 linear-gradient(45deg, transparent 75%, #ccc 75%), 
                 linear-gradient(-45deg, transparent 75%, #ccc 75%);
             background-size: 4px 4px;
-            user-select: none; /* Prevent text selection during rapid tapping */
+            user-select: none;
         }
 
-        /* The Main Window */
         .window {
             background-color: var(--window-bg);
             border: 2px solid var(--text-color);
@@ -54,7 +52,6 @@
             position: relative;
         }
 
-        /* Title Bar */
         .title-bar {
             background: 
                 repeating-linear-gradient(
@@ -80,7 +77,6 @@
             letter-spacing: 1px;
         }
 
-        /* Main Content Area */
         .content {
             padding: 20px;
             display: flex;
@@ -88,7 +84,6 @@
             gap: 20px;
         }
 
-        /* The Chord Display Screen */
         .display-screen {
             border: 2px solid var(--text-color);
             padding: 20px 10px;
@@ -103,17 +98,28 @@
             justify-content: center;
             align-items: center;
             gap: 15px;
-            /* UPDATED: Increased size for visibility on music stand */
             font-size: 7rem; 
             line-height: 1;
             padding: 10px 0;
         }
 
         .arrow {
-            /* UPDATED: Increased arrow size to match */
             font-size: 4rem;
             color: #666;
-            margin-top: 10px; /* Slight alignment fix */
+            margin-top: 10px;
+        }
+
+        /* NEW: Strum Counter Styles */
+        .strum-readout {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 5px 0;
+            color: #000;
+        }
+        .strum-label {
+            font-size: 1.2rem;
+            color: #666;
+            font-weight: normal;
         }
 
         .status-message {
@@ -123,7 +129,6 @@
             min-height: 1.5em;
         }
 
-        /* Progress Bar Retro Style */
         .progress-container {
             width: 100%;
             height: 20px;
@@ -146,12 +151,11 @@
             transition: width 0.2s linear;
         }
 
-        /* Controls Section */
         .controls-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            gap: 10px;
+            align-items: flex-start;
+            gap: 15px;
             flex-wrap: wrap;
         }
 
@@ -160,15 +164,66 @@
             flex-direction: column;
             gap: 5px;
             flex: 1;
+            min-width: 140px;
         }
 
         .group-label {
             font-size: 1.1rem;
             border-bottom: 1px solid #000;
             margin-bottom: 5px;
+            white-space: nowrap;
         }
 
-        /* Retro Buttons */
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            margin: 10px 0;
+            background: transparent;
+        }
+        input[type=range]:focus { outline: none; }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: #fff;
+            border: 1px solid #000;
+            box-shadow: inset 1px 1px 1px rgba(0,0,0,0.2);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 20px;
+            width: 10px;
+            border: 1px solid #000;
+            background: #000;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -7px;
+        }
+        /* Sensitivity Meter */
+        .meter-container {
+            width: 100%;
+            height: 6px;
+            background: #eee;
+            border: 1px solid #ccc;
+            margin-top: 2px;
+            position: relative;
+        }
+        .meter-fill {
+            height: 100%;
+            background: #666;
+            width: 0%;
+            transition: width 0.05s ease-out;
+        }
+        .threshold-marker {
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            width: 2px;
+            background: #f00;
+            left: 50%; /* JS moves this */
+            z-index: 2;
+        }
+
         button {
             font-family: 'VT323', monospace;
             font-size: 1.3rem;
@@ -179,10 +234,9 @@
             border-bottom: 2px solid #000;
             padding: 5px 15px;
             cursor: pointer;
-            active: scale(0.98);
             text-transform: uppercase;
             outline: none;
-            touch-action: manipulation; /* Improves touch response */
+            touch-action: manipulation;
         }
 
         button:active {
@@ -193,7 +247,6 @@
             background-color: #ddd;
         }
 
-        /* Toggled State (Depressed) */
         button.active, button.depressed {
             background-color: #000;
             color: #fff;
@@ -203,7 +256,6 @@
             border-bottom: 2px solid #fff;
         }
 
-        /* Start/Stop Button specific styles */
         #action-btn {
             width: 100%;
             font-size: 1.8rem;
@@ -211,7 +263,6 @@
             margin-top: 10px;
         }
 
-        /* Chord Grid (Weights) */
         .chord-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
@@ -228,12 +279,7 @@
             width: 100%;
         }
 
-        /* Helper Utilities */
-        .hidden { display: none; }
-        
-        /* Mobile specific adjustments */
         @media (max-width: 400px) {
-            /* If screen is very small, shrink font slightly so it doesn't break layout */
             .chord-box { font-size: 4.5rem; }
             .chord-grid { grid-template-columns: repeat(3, 1fr); }
         }
@@ -242,14 +288,12 @@
 <body>
 
     <div class="window">
-        <!-- Title Bar -->
         <div class="title-bar">
             <span class="title-text">GUITAR ASSISTANT</span>
         </div>
 
         <div class="content">
             
-            <!-- Main Display -->
             <div class="display-screen">
                 <div class="chord-box">
                     <span id="chord-left">A</span>
@@ -257,6 +301,12 @@
                     <span id="chord-right">Dm</span>
                 </div>
                 
+                <!-- NEW: Strum Counter Display -->
+                <div class="strum-readout">
+                    <span class="strum-label">STRUMS:</span> 
+                    <span id="strum-count">0</span>
+                </div>
+
                 <div class="progress-container">
                     <div id="progress-bar" class="progress-fill"></div>
                 </div>
@@ -264,9 +314,7 @@
                 <div id="status-text" class="status-message">Ready</div>
             </div>
 
-            <!-- Settings & Controls -->
             <div class="controls-row">
-                <!-- Duration Selectors -->
                 <div class="control-group">
                     <div class="group-label">Duration</div>
                     <div style="display: flex; gap: 5px;">
@@ -275,17 +323,23 @@
                         <button class="duration-btn" data-time="60" onclick="setDuration(60)">60s</button>
                     </div>
                 </div>
+
+                <!-- NEW: Sensitivity Slider -->
+                <div class="control-group">
+                    <div class="group-label">Strum Sensitivity</div>
+                    <input type="range" id="sensitivity-slider" min="1" max="100" value="30">
+                    <div class="meter-container">
+                        <div id="meter-fill" class="meter-fill"></div>
+                        <div id="threshold-marker" class="threshold-marker"></div>
+                    </div>
+                </div>
             </div>
 
-            <!-- Action Button -->
             <button id="action-btn" onclick="toggleTimer()">START</button>
 
-            <!-- Chord Selection (The "Weights" area) -->
             <div class="control-group">
                 <div class="group-label">Chord Set</div>
-                <div class="chord-grid" id="chord-grid">
-                    <!-- Javascript will populate this -->
-                </div>
+                <div class="chord-grid" id="chord-grid"></div>
             </div>
 
         </div>
@@ -293,18 +347,23 @@
 
     <script>
         // --- Configuration ---
-        // ADD NEW CHORDS HERE inside the quotes. 
-        // Example: ['A', 'D', 'E', 'F#m', 'B7']
-        // The buttons at the bottom will automatically update to include them.
         const ALL_CHORDS = ['A', 'D', 'E', 'C', 'G', 'Am', 'Dm', 'Em'];
         
-        let activeChords = [...ALL_CHORDS]; // Start with all
-        
+        let activeChords = [...ALL_CHORDS];
         let duration = 30;
         let isRunning = false;
         let timerInterval = null;
         let timeLeft = 0;
         let wakeLock = null;
+        let strumCount = 0;
+
+        // --- Audio Variables ---
+        let audioContext = null;
+        let analyser = null;
+        let microphoneStream = null;
+        let audioProcessingId = null;
+        let isStrumming = false; // Debounce state
+        let lastStrumTime = 0;
 
         // --- DOM Elements ---
         const chordLeftEl = document.getElementById('chord-left');
@@ -313,11 +372,26 @@
         const progressBarEl = document.getElementById('progress-bar');
         const actionBtn = document.getElementById('action-btn');
         const chordGrid = document.getElementById('chord-grid');
+        const strumCountEl = document.getElementById('strum-count');
+        const sensitivitySlider = document.getElementById('sensitivity-slider');
+        const meterFill = document.getElementById('meter-fill');
+        const thresholdMarker = document.getElementById('threshold-marker');
 
         // --- Initialization ---
         function init() {
             renderChordButtons();
             randomizeChords();
+            updateThresholdMarker();
+        }
+
+        // Sensitivity slider updates visuals
+        sensitivitySlider.addEventListener('input', updateThresholdMarker);
+
+        function updateThresholdMarker() {
+            // Slider value 0-100. Marker position % matches value.
+            // Higher value = Higher threshold (harder to trigger)
+            const val = sensitivitySlider.value;
+            thresholdMarker.style.left = val + '%';
         }
 
         // --- Chord Logic ---
@@ -326,19 +400,17 @@
             ALL_CHORDS.forEach(chord => {
                 const btn = document.createElement('button');
                 btn.textContent = chord;
-                btn.className = 'chord-toggle depressed'; // Default to active look
+                btn.className = 'chord-toggle depressed';
                 btn.onclick = () => toggleChordInclusion(chord, btn);
                 chordGrid.appendChild(btn);
             });
         }
 
         function toggleChordInclusion(chord, btnElement) {
-            // Logic: You cannot uncheck the last 2 chords (need at least 2 to switch)
             const isCurrentlyActive = activeChords.includes(chord);
             
             if (isCurrentlyActive) {
                 if (activeChords.length <= 2) {
-                    // Flash error or shake button if trying to remove too many
                     btnElement.style.backgroundColor = '#aaa';
                     setTimeout(() => btnElement.style.backgroundColor = '', 100);
                     return; 
@@ -353,19 +425,14 @@
 
         function randomizeChords() {
             if (activeChords.length < 2) return;
-
-            // Pick first chord
             const idx1 = Math.floor(Math.random() * activeChords.length);
             let chord1 = activeChords[idx1];
-
-            // Pick second chord (ensure it's different)
             let chord2;
             do {
                 const idx2 = Math.floor(Math.random() * activeChords.length);
                 chord2 = activeChords[idx2];
             } while (chord1 === chord2);
 
-            // Update DOM with slight animation effect
             chordLeftEl.style.opacity = 0;
             chordRightEl.style.opacity = 0;
 
@@ -377,20 +444,14 @@
             }, 100);
         }
 
-        // --- Timer Logic ---
+        // --- Timer & App State ---
         function setDuration(seconds) {
-            if (isRunning) return; // Disable changing time while running
-            
+            if (isRunning) return;
             duration = seconds;
-            
-            // Visual update of buttons
             document.querySelectorAll('.duration-btn').forEach(btn => {
                 btn.classList.remove('active');
-                if (parseInt(btn.dataset.time) === seconds) {
-                    btn.classList.add('active');
-                }
+                if (parseInt(btn.dataset.time) === seconds) btn.classList.add('active');
             });
-            
             statusTextEl.textContent = `Set for ${duration}s`;
         }
 
@@ -407,40 +468,15 @@
             actionBtn.textContent = "STOP";
             actionBtn.classList.add('depressed');
             
-            // Lock the screen awake
+            // Reset Strum Count
+            strumCount = 0;
+            strumCountEl.textContent = "0";
+
             await requestWakeLock();
+            await initAudio(); // Initialize mic
 
-            // Initial randomized set
             randomizeChords();
-            
             startIntervalCycle();
-        }
-
-        function startIntervalCycle() {
-            timeLeft = duration;
-            updateProgress();
-            statusTextEl.textContent = `${timeLeft}s remaining`;
-
-            // Clear any existing interval just in case
-            if (timerInterval) clearInterval(timerInterval);
-
-            timerInterval = setInterval(() => {
-                timeLeft--;
-                statusTextEl.textContent = `${timeLeft}s remaining`;
-                updateProgress();
-
-                if (timeLeft <= 0) {
-                    // Time is up! 
-                    randomizeChords();
-                    timeLeft = duration; // Reset time
-                    statusTextEl.textContent = "CHANGE!";
-                    // Flash effect
-                    document.querySelector('.display-screen').style.backgroundColor = '#ccc';
-                    setTimeout(() => {
-                        document.querySelector('.display-screen').style.backgroundColor = '#fff';
-                    }, 100);
-                }
-            }, 1000);
         }
 
         function stopTimer() {
@@ -455,6 +491,30 @@
             statusTextEl.textContent = "Paused";
             
             releaseWakeLock();
+            stopAudio(); // Cut mic
+        }
+
+        function startIntervalCycle() {
+            timeLeft = duration;
+            updateProgress();
+            statusTextEl.textContent = `${timeLeft}s remaining`;
+            if (timerInterval) clearInterval(timerInterval);
+
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                statusTextEl.textContent = `${timeLeft}s remaining`;
+                updateProgress();
+
+                if (timeLeft <= 0) {
+                    randomizeChords();
+                    timeLeft = duration;
+                    statusTextEl.textContent = "CHANGE!";
+                    document.querySelector('.display-screen').style.backgroundColor = '#ccc';
+                    setTimeout(() => {
+                        document.querySelector('.display-screen').style.backgroundColor = '#fff';
+                    }, 100);
+                }
+            }, 1000);
         }
 
         function updateProgress() {
@@ -462,43 +522,121 @@
             progressBarEl.style.width = `${percentage}%`;
         }
 
-        // --- Screen Wake Lock API ---
+        // --- Audio & Strum Detection ---
+        async function initAudio() {
+            try {
+                // Create context
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContext = new AudioContext();
+                
+                // Get mic stream
+                microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                const source = audioContext.createMediaStreamSource(microphoneStream);
+                
+                // Create analyser
+                analyser = audioContext.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+
+                // Start loop
+                detectStrum();
+            } catch (err) {
+                console.error("Mic Error:", err);
+                statusTextEl.textContent = "Mic access denied/failed";
+            }
+        }
+
+        function stopAudio() {
+            if (microphoneStream) {
+                microphoneStream.getTracks().forEach(track => track.stop());
+                microphoneStream = null;
+            }
+            if (audioContext && audioContext.state !== 'closed') {
+                audioContext.close();
+                audioContext = null;
+            }
+            if (audioProcessingId) {
+                cancelAnimationFrame(audioProcessingId);
+                audioProcessingId = null;
+            }
+            meterFill.style.width = '0%';
+        }
+
+        function detectStrum() {
+            if (!isRunning || !analyser) return;
+
+            const bufferLength = analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            analyser.getByteTimeDomainData(dataArray);
+
+            // Calculate peak volume (amplitude)
+            let maxVal = 0;
+            for(let i = 0; i < bufferLength; i++) {
+                const v = Math.abs(dataArray[i] - 128); // 128 is silence in 8-bit
+                if (v > maxVal) maxVal = v;
+            }
+
+            // Normalize maxVal (approx 0-128) to 0-100 for easy visual logic
+            const currentVol = (maxVal / 128) * 100;
+            
+            // Visual Update
+            meterFill.style.width = Math.min(currentVol * 2, 100) + '%'; // *2 purely for visual pop
+
+            // Logic
+            // The Slider value (0-100) is the threshold.
+            // If currentVol > Slider, we count a strum.
+            const threshold = parseInt(sensitivitySlider.value);
+            
+            // Hysteresis (Debouncing)
+            // Trigger ON if vol > threshold
+            // Trigger OFF if vol < threshold * 0.5 (must go quiet before next strum)
+            
+            const now = Date.now();
+            // Prevent machine-gun counting (limit to 1 strum per 150ms max)
+            const timeSinceLast = now - lastStrumTime;
+
+            if (currentVol > threshold && !isStrumming && timeSinceLast > 150) {
+                // STRUM DETECTED
+                isStrumming = true;
+                lastStrumTime = now;
+                strumCount++;
+                strumCountEl.textContent = strumCount;
+                
+                // Visual flash on counter
+                strumCountEl.style.color = '#888';
+                setTimeout(() => strumCountEl.style.color = '#000', 100);
+
+            } else if (currentVol < (threshold * 0.5)) {
+                // Reset trigger when it gets quiet enough
+                isStrumming = false;
+            }
+
+            audioProcessingId = requestAnimationFrame(detectStrum);
+        }
+
+        // --- Wake Lock ---
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Screen Wake Lock active');
-                    
-                    // Re-acquire lock if visibility changes (user tabs out and back in)
-                    wakeLock.addEventListener('release', () => {
-                        console.log('Screen Wake Lock released');
-                    });
-                } catch (err) {
-                    console.error(`${err.name}, ${err.message}`);
-                    statusTextEl.textContent = "Wake Lock Failed (Check Settings)";
-                }
+                    wakeLock.addEventListener('release', () => console.log('Wake Lock released'));
+                } catch (err) { console.error(err); }
             }
         }
 
         function releaseWakeLock() {
             if (wakeLock !== null) {
-                wakeLock.release()
-                    .then(() => {
-                        wakeLock = null;
-                    });
+                wakeLock.release().then(() => { wakeLock = null; });
             }
         }
 
-        // Handle visibility change to re-acquire lock if app was running
         document.addEventListener('visibilitychange', async () => {
             if (wakeLock !== null && document.visibilityState === 'visible' && isRunning) {
                 await requestWakeLock();
             }
         });
 
-        // Run Init
         init();
-
     </script>
 </body>
 </html>
