@@ -92,22 +92,51 @@
             text-align: center;
             box-shadow: inset 2px 2px 0px rgba(0,0,0,0.1);
             position: relative;
+            transition: background-color 0.1s;
         }
 
+        /* --- DYNAMIC CHORD SIZING --- */
         .chord-box {
             display: flex;
             justify-content: center;
             align-items: center;
-            gap: 15px;
-            font-size: 7rem; 
-            line-height: 1;
+            flex-wrap: wrap;
+            gap: 10px;
+            min-height: 120px; /* Keep height stable */
             padding: 10px 0;
         }
 
-        .arrow {
-            font-size: 4rem;
+        /* Default (2 chords) is huge */
+        .chord-text-2 {
+            font-size: 6.5rem;
+            line-height: 1;
+        }
+        .arrow-text-2 {
+            font-size: 3.5rem;
             color: #666;
             margin-top: 10px;
+        }
+
+        /* 3 chords - slightly smaller */
+        .chord-text-3 {
+            font-size: 4.5rem;
+            line-height: 1;
+        }
+        .arrow-text-3 {
+            font-size: 2.5rem;
+            color: #666;
+            margin-top: 8px;
+        }
+
+        /* 4 chords - smaller to fit */
+        .chord-text-4 {
+            font-size: 3.5rem;
+            line-height: 1;
+        }
+        .arrow-text-4 {
+            font-size: 2rem;
+            color: #666;
+            margin-top: 5px;
         }
 
         /* Strum Counter Styles */
@@ -150,7 +179,7 @@
             height: 100%;
             background-color: var(--text-color);
             width: 0%;
-            transition: width 0.2s linear;
+            /* No transition here because we update every frame now */
         }
 
         /* Controls Layout */
@@ -172,9 +201,10 @@
             border-bottom: 1px solid #000;
             margin-bottom: 5px;
             white-space: nowrap;
+            display: flex;
+            justify-content: space-between;
         }
 
-        /* Slider Row with Test Button */
         .slider-row {
             display: flex;
             align-items: center;
@@ -207,6 +237,7 @@
             -webkit-appearance: none;
             margin-top: -7px;
         }
+        
         /* Sensitivity Meter */
         .meter-container {
             width: 100%;
@@ -228,7 +259,7 @@
             bottom: -2px;
             width: 2px;
             background: #f00;
-            left: 50%; /* JS moves this */
+            left: 50%; 
             z-index: 2;
         }
 
@@ -264,14 +295,17 @@
             border-bottom: 2px solid #fff;
         }
 
-        /* Test Button Style */
+        /* Pattern Buttons should fill the width equally */
+        .pattern-btn {
+            flex: 1;
+        }
+
         #test-btn {
             font-size: 1.1rem;
             padding: 5px 10px;
             white-space: nowrap;
         }
 
-        /* Main Action Row */
         .action-row {
             display: flex;
             gap: 10px;
@@ -349,15 +383,23 @@
         .log-item {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             padding: 8px 10px;
             border-bottom: 1px solid #eee;
-            font-size: 1.3rem;
+            font-size: 1.1rem;
         }
         .log-item:last-child { border-bottom: none; }
         .log-item:nth-child(even) { background-color: #fafafa; }
+        
+        .log-key {
+            /* Allow wrapping for long chord chains */
+            flex-grow: 1;
+            margin-right: 10px;
+        }
 
         .log-score {
             font-weight: bold;
+            white-space: nowrap;
         }
 
         .modal-footer {
@@ -371,7 +413,7 @@
         .hidden { display: none !important; }
 
         @media (max-width: 400px) {
-            .chord-box { font-size: 4.5rem; }
+            .chord-box { min-height: 100px; }
             .chord-grid { grid-template-columns: repeat(3, 1fr); }
         }
     </style>
@@ -385,14 +427,22 @@
 
         <div class="content">
             
+            <!-- Pattern Length Selector -->
+            <div class="control-group">
+                <div class="group-label">Chords in Pattern</div>
+                <div style="display: flex; gap: 5px;">
+                    <button class="pattern-btn active" data-length="2" onclick="setPatternLength(2)">2</button>
+                    <button class="pattern-btn" data-length="3" onclick="setPatternLength(3)">3</button>
+                    <button class="pattern-btn" data-length="4" onclick="setPatternLength(4)">4</button>
+                </div>
+            </div>
+
             <div class="display-screen">
-                <div class="chord-box">
-                    <span id="chord-left">A</span>
-                    <span class="arrow">➜</span>
-                    <span id="chord-right">Dm</span>
+                <!-- DYNAMIC CHORD BOX -->
+                <div class="chord-box" id="chord-box-container">
+                    <!-- Chords injected via JS -->
                 </div>
                 
-                <!-- Strum Counter Display -->
                 <div class="strum-readout" id="strum-display-area">
                     <span class="strum-label">STRUMS:</span> 
                     <span id="strum-count">0</span>
@@ -406,7 +456,6 @@
             </div>
 
             <div class="controls-section">
-                <!-- Row 1: Duration -->
                 <div class="control-group">
                     <div class="group-label">Duration</div>
                     <div style="display: flex; gap: 5px;">
@@ -416,9 +465,8 @@
                     </div>
                 </div>
 
-                <!-- Row 2: Sensitivity & Test -->
                 <div class="control-group">
-                    <div class="group-label">Strum Sensitivity (L=More, R=Less)</div>
+                    <div class="group-label">Strum Sensitivity</div>
                     <div class="slider-row">
                         <input type="range" id="sensitivity-slider" min="5" max="100" value="40">
                         <button id="test-btn" onclick="toggleTestMode()">TEST MIC</button>
@@ -447,12 +495,10 @@
     <div id="log-modal" class="modal-overlay hidden">
         <div class="modal-window">
             <div class="title-bar">
-                <span class="title-text">PRACTICE LOG (MAX STRUMS)</span>
+                <span class="title-text">PRACTICE LOG (MAX SPM)</span>
             </div>
             <div class="modal-content">
-                <ul id="log-list" class="log-list">
-                    <!-- Logs go here -->
-                </ul>
+                <ul id="log-list" class="log-list"></ul>
             </div>
             <div class="modal-footer">
                 <button onclick="clearLog()">CLEAR ALL</button>
@@ -467,9 +513,12 @@
         
         let activeChords = [...ALL_CHORDS];
         let duration = 30;
+        let patternLength = 2; // Default
         let isRunning = false;
         let isTestMode = false;
         let timerInterval = null;
+        let animationFrameId = null; // For smooth progress bar
+        let endTime = 0; // For smooth progress bar
         let timeLeft = 0;
         let wakeLock = null;
         let strumCount = 0;
@@ -487,8 +536,7 @@
         const STRUM_DEBOUNCE_MS = 400; 
 
         // --- DOM Elements ---
-        const chordLeftEl = document.getElementById('chord-left');
-        const chordRightEl = document.getElementById('chord-right');
+        const chordBoxContainer = document.getElementById('chord-box-container');
         const statusTextEl = document.getElementById('status-text');
         const progressBarEl = document.getElementById('progress-bar');
         const actionBtn = document.getElementById('action-btn');
@@ -510,6 +558,23 @@
             loadLog();
         }
 
+        // --- Pattern Button Logic ---
+        function setPatternLength(length) {
+            patternLength = length;
+            
+            // Update UI
+            document.querySelectorAll('.pattern-btn').forEach(btn => {
+                btn.classList.remove('active');
+                if (parseInt(btn.dataset.length) === length) {
+                    btn.classList.add('active');
+                }
+            });
+
+            // If idle, show new pattern length immediately
+            if (!isRunning) randomizeChords();
+            // If running, it will apply on next change (or user can restart manually)
+        }
+
         // --- Log Logic ---
         function loadLog() {
             const stored = localStorage.getItem('guitarPracticeLog');
@@ -522,36 +587,29 @@
             localStorage.setItem('guitarPracticeLog', JSON.stringify(practiceLog));
         }
 
-        function updateLogRecord(chord1, chord2, count) {
-            const key = `${chord1} ➜ ${chord2}`;
-            const currentMax = practiceLog[key] || 0;
-            
-            if (count > currentMax) {
-                practiceLog[key] = count;
+        function updateLogRecord(chordKey, spm) {
+            const currentMax = practiceLog[chordKey] || 0;
+            if (spm > currentMax) {
+                practiceLog[chordKey] = spm;
                 saveLog();
-                console.log(`New record for ${key}: ${count}`);
-                // Optional: Flash a "New Record" message?
             }
         }
 
         function openLogModal() {
             logList.innerHTML = '';
-            
             const entries = Object.entries(practiceLog);
             if (entries.length === 0) {
                 logList.innerHTML = '<li class="log-item" style="justify-content:center; color:#666;">No practice data yet.</li>';
             } else {
-                // Sort alphabetically
-                entries.sort((a, b) => a[0].localeCompare(b[0]));
-                
+                // Sort by SPM Ascending
+                entries.sort((a, b) => a[1] - b[1]);
                 entries.forEach(([key, score]) => {
                     const li = document.createElement('li');
                     li.className = 'log-item';
-                    li.innerHTML = `<span>${key}</span> <span class="log-score">${score}</span>`;
+                    li.innerHTML = `<span class="log-key">${key}</span> <span class="log-score">${score} spm</span>`;
                     logList.appendChild(li);
                 });
             }
-            
             logModal.classList.remove('hidden');
         }
 
@@ -563,11 +621,10 @@
             if(confirm("Are you sure you want to clear your practice history?")) {
                 practiceLog = {};
                 saveLog();
-                openLogModal(); // Refresh view
+                openLogModal(); 
             }
         }
 
-        // Sensitivity slider updates visuals
         sensitivitySlider.addEventListener('input', updateThresholdMarker);
 
         function updateThresholdMarker() {
@@ -590,7 +647,6 @@
 
         function toggleChordInclusion(chord, btnElement) {
             const isCurrentlyActive = activeChords.includes(chord);
-            
             if (isCurrentlyActive) {
                 if (activeChords.length <= 2) {
                     btnElement.style.backgroundColor = '#aaa';
@@ -607,41 +663,80 @@
 
         function randomizeChords() {
             if (activeChords.length < 2) return;
-            const idx1 = Math.floor(Math.random() * activeChords.length);
-            let chord1 = activeChords[idx1];
-            let chord2;
-            do {
-                const idx2 = Math.floor(Math.random() * activeChords.length);
-                chord2 = activeChords[idx2];
-            } while (chord1 === chord2);
 
-            chordLeftEl.style.opacity = 0;
-            chordRightEl.style.opacity = 0;
+            let chords = [];
+            // Logic: Generate sequence where current !== previous
+            for (let i = 0; i < patternLength; i++) {
+                let nextChord;
+                let attempts = 0;
+                do {
+                    const idx = Math.floor(Math.random() * activeChords.length);
+                    nextChord = activeChords[idx];
+                    attempts++;
+                } while (
+                    i > 0 && 
+                    nextChord === chords[i - 1] && 
+                    attempts < 20 // Safety break
+                );
+                chords.push(nextChord);
+            }
+
+            renderDisplay(chords);
+        }
+
+        function renderDisplay(chordsArray) {
+            // Fade out
+            chordBoxContainer.style.opacity = 0;
 
             setTimeout(() => {
-                chordLeftEl.textContent = chord1;
-                chordRightEl.textContent = chord2;
-                chordLeftEl.style.opacity = 1;
-                chordRightEl.style.opacity = 1;
+                chordBoxContainer.innerHTML = '';
+                
+                // Determine styling based on count
+                const count = chordsArray.length;
+                const textClass = `chord-text-${count}`;
+                const arrowClass = `arrow-text-${count}`;
+
+                for (let i = 0; i < count; i++) {
+                    const span = document.createElement('span');
+                    span.textContent = chordsArray[i];
+                    span.className = textClass;
+                    chordBoxContainer.appendChild(span);
+
+                    // Add arrow if not last
+                    if (i < count - 1) {
+                        const arrow = document.createElement('span');
+                        arrow.textContent = '➜'; // System 6 style arrow
+                        arrow.className = arrowClass;
+                        chordBoxContainer.appendChild(arrow);
+                    }
+                }
+                
+                // Fade in
+                chordBoxContainer.style.opacity = 1;
             }, 100);
         }
 
         // --- Timer & App State ---
         function setDuration(seconds) {
-            if (isRunning) return;
             duration = seconds;
             document.querySelectorAll('.duration-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (parseInt(btn.dataset.time) === seconds) btn.classList.add('active');
             });
             statusTextEl.textContent = `Set for ${duration}s`;
+
+            if (isRunning) {
+                // Restart session smoothly
+                stopTimer(false); // Stop but don't clear UI
+                startTimer();
+            }
         }
 
         function toggleTimer() {
             if (isTestMode) toggleTestMode();
 
             if (isRunning) {
-                stopTimer();
+                stopTimer(true);
             } else {
                 startTimer();
             }
@@ -651,22 +746,42 @@
             isRunning = true;
             actionBtn.textContent = "STOP";
             actionBtn.classList.add('depressed');
-            
             resetStrumCount();
 
             await requestWakeLock();
             await initAudio(); 
 
             randomizeChords();
+            
+            // Start Logic Timer (for events)
             startIntervalCycle();
+            // Start Visual Timer (for smooth bar)
+            endTime = Date.now() + (duration * 1000);
+            animateProgressBar();
         }
 
-        function stopTimer() {
-            // Save logic if user stops manually? 
-            // Current Logic: Only saves on completion of full duration interval.
-            // If you want to save partial efforts, uncomment below:
-            // captureCurrentScore();
+        // New Smooth Animation Loop
+        function animateProgressBar() {
+            if (!isRunning) return;
 
+            const now = Date.now();
+            const remaining = endTime - now;
+            const elapsed = (duration * 1000) - remaining;
+            
+            // Calculate percentage filled (0 to 100)
+            let percent = (elapsed / (duration * 1000)) * 100;
+            
+            // Clamp
+            percent = Math.max(0, Math.min(100, percent));
+            
+            progressBarEl.style.width = `${percent}%`;
+
+            if (remaining > 0) {
+                animationFrameId = requestAnimationFrame(animateProgressBar);
+            }
+        }
+
+        function stopTimer(isManualStop) {
             isRunning = false;
             actionBtn.textContent = "START";
             actionBtn.classList.remove('depressed');
@@ -674,11 +789,14 @@
             clearInterval(timerInterval);
             timerInterval = null;
             
-            progressBarEl.style.width = '0%';
-            statusTextEl.textContent = "Paused";
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
             
-            releaseWakeLock();
-            stopAudio(); 
+            if (isManualStop) {
+                progressBarEl.style.width = '0%';
+                statusTextEl.textContent = "Paused";
+                releaseWakeLock();
+                stopAudio();
+            }
         }
 
         function resetStrumCount() {
@@ -687,48 +805,48 @@
         }
 
         function captureCurrentScore() {
-            // Check what is currently on screen and log it
-            const c1 = chordLeftEl.textContent;
-            const c2 = chordRightEl.textContent;
-            if (c1 && c2 && strumCount > 0) {
-                updateLogRecord(c1, c2, strumCount);
+            if (strumCount < 5) return;
+
+            // Construct key from current DOM elements
+            const spans = chordBoxContainer.querySelectorAll('[class^="chord-text"]');
+            const currentChords = Array.from(spans).map(s => s.textContent);
+            
+            if (currentChords.length > 0) {
+                const key = currentChords.join(' ➜ ');
+                const multiplier = 60 / duration;
+                const spm = Math.round(strumCount * multiplier);
+                updateLogRecord(key, spm);
             }
         }
 
         function startIntervalCycle() {
-            timeLeft = duration;
-            updateProgress();
+            timeLeft = duration; // Logic counter
             statusTextEl.textContent = `${timeLeft}s remaining`;
             if (timerInterval) clearInterval(timerInterval);
 
             timerInterval = setInterval(() => {
                 timeLeft--;
                 statusTextEl.textContent = `${timeLeft}s remaining`;
-                updateProgress();
-
+                
                 if (timeLeft <= 0) {
-                    // 1. Capture Score BEFORE changing chords
+                    // Cycle End
                     captureCurrentScore();
-
-                    // 2. Change Chords
                     randomizeChords();
-                    
-                    // 3. Reset Count
                     resetStrumCount();
-                    
                     timeLeft = duration;
+                    
+                    // Reset Animation Target
+                    endTime = Date.now() + (duration * 1000);
+                    animateProgressBar();
+
                     statusTextEl.textContent = "CHANGE!";
+                    // Flash
                     document.querySelector('.display-screen').style.backgroundColor = '#ccc';
                     setTimeout(() => {
                         document.querySelector('.display-screen').style.backgroundColor = '#fff';
                     }, 100);
                 }
             }, 1000);
-        }
-
-        function updateProgress() {
-            const percentage = ((duration - timeLeft) / duration) * 100;
-            progressBarEl.style.width = `${percentage}%`;
         }
 
         // --- Test Mode Logic ---
@@ -770,7 +888,7 @@
                 console.error("Mic Error:", err);
                 statusTextEl.textContent = "Mic access denied";
                 if(isTestMode) toggleTestMode();
-                if(isRunning) stopTimer();
+                if(isRunning) stopTimer(true);
             }
         }
 
@@ -803,17 +921,13 @@
                 if (v > maxVal) maxVal = v;
             }
 
-            // Normalize maxVal (0-128) to 0-100
             const currentVol = (maxVal / 128) * 100;
-            
-            // Visual Meter Update
             meterFill.style.width = Math.min(currentVol * 2, 100) + '%'; 
 
             const threshold = parseInt(sensitivitySlider.value);
             const now = Date.now();
             const timeSinceLast = now - lastStrumTime;
 
-            // Trigger Logic
             if (currentVol > threshold && !isStrumming && timeSinceLast > STRUM_DEBOUNCE_MS) {
                 isStrumming = true;
                 lastStrumTime = now;
